@@ -239,7 +239,6 @@ int main(int argc, char** argv) {
   core->set_timer(true);
 
   // TODO: Convert camera lidar calibrations from .yaml to .tensor (Not in cpp) [Arnav]
-  // https://drive.google.com/file/d/1RO493RSWyXbyS12yWk5ZzrixAeZQSnL8/view download files and put into bevfusion folder
   // 1. Understand contents of camera2lidar, camera_intrinsics, lidar2image, img_aug_matrix tensors
   // 2. Convert .yaml to .tensor for the following
   // 3. Change load path to where our .tensor files are stored [may involve changing .cpp files]
@@ -253,24 +252,31 @@ int main(int argc, char** argv) {
               stream);
   // core->free_excess_memory();
 
-  // Load image and lidar to host
-  auto images = load_images(data);
-  auto lidar_points = nv::Tensor::load(nv::format("%s/points.tensor", data), false);
-  
-  // warmup
-  auto bboxes =
-      core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
+  for (size_t frame_idx=0; frame_idx<10; frame_idx++) {
+    // TODO: Format strings for current frames' images and point cloud [Arsh]
 
-  // evaluate inference time
-  for (int i = 0; i < 5; ++i) {
+    // TODO: Modify load_images to load images from our dataset [Arsh]
+    // Load image and lidar to host
+    auto images = load_images(data);
+
+    // TODO: Modify load lidar_points to load point cloud from our dataset [Arnav]
+    auto lidar_points = nv::Tensor::load(nv::format("%s/points.tensor", data), false);
+    
+    // warmup
+    auto bboxes =
+        core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
+
+    // evaluate inference time
+    // for (int i = 0; i < 5; ++i) {
     core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
+    // }
+
+    // visualize and save to jpg
+    visualize(bboxes, lidar_points, images, lidar2image, "build/cuda-bevfusion.jpg", stream);
+
+    // destroy memory
+    free_images(images);
+    checkRuntime(cudaStreamDestroy(stream));
   }
-
-  // visualize and save to jpg
-  visualize(bboxes, lidar_points, images, lidar2image, "build/cuda-bevfusion.jpg", stream);
-
-  // destroy memory
-  free_images(images);
-  checkRuntime(cudaStreamDestroy(stream));
   return 0;
 }

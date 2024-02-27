@@ -22,8 +22,8 @@
 
 # export CUDA_VISIBLE_DEVICES=2
 
-export TensorRT_Lib=/path/to/TensorRT/lib
-export TensorRT_Inc=/path/to/TensorRT/include
+export TensorRT_Lib=/lib/aarch64-linux-gnu
+export TensorRT_Inc=/usr/include/aarch64-linux-gnu
 export TensorRT_Bin=/usr/src/tensorrt/bin
 
 export CUDA_Lib=/usr/local/cuda/lib64
@@ -31,7 +31,7 @@ export CUDA_Inc=/usr/local/cuda/include
 export CUDA_Bin=/usr/local/cuda/bin
 export CUDA_HOME=/usr/local/cuda
 
-export CUDNN_Lib=/path/to/cudnn/lib
+export CUDNN_Lib=/usr/lib/aarch64-linux-gnu
 
 
 # resnet50/resnet50int8/swint
