@@ -238,7 +238,7 @@ int main(int argc, char** argv) {
   core->print();
   core->set_timer(true);
 
-  // TODO: Convert camera lidar calibrations from .yaml to .tensor (Not in cpp) [Arnav]
+  // TODO: Convert camera lidar calibrations from .yaml to .tensor (In separate python program) [Arnav]
   // 1. Understand contents of camera2lidar, camera_intrinsics, lidar2image, img_aug_matrix tensors
   // 2. Convert .yaml to .tensor for the following
   // 3. Change load path to where our .tensor files are stored [may involve changing .cpp files]
@@ -252,14 +252,17 @@ int main(int argc, char** argv) {
               stream);
   // core->free_excess_memory();
 
+
+  std::string img_root_dir = "path_to_2d_raw/camid_directory";
+  std::string pc_root_dir = "path_to_3d_raw/os1_directory"
   for (size_t frame_idx=0; frame_idx<10; frame_idx++) {
     // TODO: Format strings for current frames' images and point cloud [Arsh]
 
-    // TODO: Modify load_images to load images from our dataset [Arsh]
+    // TODO: Modify load_images(cam_dir, camid, seq, frame) to load images from our dataset [Arsh]
     // Load image and lidar to host
     auto images = load_images(data);
 
-    // TODO: Modify load lidar_points to load point cloud from our dataset [Arnav]
+    // TODO: Add load lidar_points(lidar_dir, seq, frame) to load point cloud from our dataset [Arnav]
     auto lidar_points = nv::Tensor::load(nv::format("%s/points.tensor", data), false);
     
     // warmup
@@ -272,6 +275,7 @@ int main(int argc, char** argv) {
     // }
 
     // visualize and save to jpg
+    // TODO: Modify visualize to save frames individually for our dataset [Arnav]
     visualize(bboxes, lidar_points, images, lidar2image, "build/cuda-bevfusion.jpg", stream);
 
     // destroy memory
