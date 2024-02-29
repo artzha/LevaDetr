@@ -42,17 +42,22 @@
 
 namespace fs = std::filesystem;
 
-std::vector<std::string> load_sequence(const std::string& directoryPath, int seqNum) {
-  std::vector<std::string> files;
-    for (const auto& entry : fs::directory_iterator(directoryPath)) {
+std::vector<std::string> load_sequences(const std::string& directoryPath, int seqNum) {
+  std::vector<std::vector<std::string>> files;
+  
+  for(int i = 0; i < 5; i++) {
+    sprintf(tempDirectoryPath, "%s/%s%d/%s", directoryPath, "cam", i, seqNum);
+    for (const auto& entry : fs::directory_iterator(tempDirectoryPath)) {
         if (entry.is_regular_file()) {
             files.push_back(entry.path().string());
         }
     }
+  }
+    
     return files;
 }
 
-static std::vector<unsigned char*> load_images(const std::string& root, int seqNum, const std::string imageFile) {
+static std::vector<unsigned char*> load_images(const std::string& root, int seqNum, const std::vector<std::vector<std::string>> imageFiles) {
 
   std::vector<unsigned char*> images;
 
@@ -61,8 +66,8 @@ static std::vector<unsigned char*> load_images(const std::string& root, int seqN
     char path[200];
 
     // example = 2d_raw/cam0/1/2d_raw_cam0_1_98.jpg
-    sprintf(path, "%s/%s%d/%d/%s", root.c_str(), "cam", i, seqNum, imageFile);
-
+    sprintf(path, "%s/%s%d/%d/%s", root.c_str(), "cam", i, seqNum, imageFiles[seqNum][frameIdx]);
+    
     int width, height, channels;
     images.push_back(stbi_load(path, &width, &height, &channels, 0));
     // printf("Image info[%d]: %d x %d : %d\n", i, width, height, channels);
@@ -281,7 +286,7 @@ int main(int argc, char** argv) {
       if (count == 10) {
           break;
       }
-      auto imageFiles = load_sequence(img_root_dir, seqNum);
+      auto imageFiles = load_sequences(img_root_dir, seqNum);
       // Get the frame number for the sequences
       for (int frame_idx=0; frame_idx < num_of_frames_per_seq[num_of_frames_per_seq_iter]; frame_idx++) {
         // TODO: Format strings for current frames' images and point cloud [Arsh]
@@ -293,7 +298,7 @@ int main(int argc, char** argv) {
           break;
         }
         
-        auto images = load_images(img_root_dir, seqNum, imageFiles[frame_idx]);
+        auto images = load_images(img_root_dir, seqNum, imageFiles);
         
         // TODO: Add load lidar_points(lidar_dir, seq, frame) to load point cloud from our dataset [Arnav]
         auto lidar_points = nv::Tensor::load(nv::format("%s/points.tensor", data), false);
