@@ -25,6 +25,8 @@
 #include <string.h>
 
 #include <vector>
+#include <iostream>
+#include <filesystem>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -38,14 +40,28 @@
 #include "common/timer.hpp"
 #include "common/visualize.hpp"
 
-static std::vector<unsigned char*> load_images(const std::string& root) {
-  const char* file_names[] = {"0-FRONT.jpg", "1-FRONT_RIGHT.jpg", "2-FRONT_LEFT.jpg",
-                              "3-BACK.jpg",  "4-BACK_LEFT.jpg",   "5-BACK_RIGHT.jpg"};
+namespace fs = std::filesystem;
+
+std::vector<std::string> load_sequence(const std::string& directoryPath, int seqNum) {
+  std::vector<std::string> files;
+    for (const auto& entry : fs::directory_iterator(directoryPath)) {
+        if (entry.is_regular_file()) {
+            files.push_back(entry.path().string());
+        }
+    }
+    return files;
+}
+
+static std::vector<unsigned char*> load_images(const std::string& root, int seqNum, const std::string imageFile) {
 
   std::vector<unsigned char*> images;
-  for (int i = 0; i < 6; ++i) {
+
+  // For 5 cameras on vehicle push_back full path of image
+  for (int i = 0; i < 5; i++) {
     char path[200];
-    sprintf(path, "%s/%s", root.c_str(), file_names[i]);
+
+    // example = 2d_raw/cam0/1/2d_raw_cam0_1_98.jpg
+    sprintf(path, "%s/%s%d/%d/%s", root.c_str(), "cam", i, seqNum, imageFile);
 
     int width, height, channels;
     images.push_back(stbi_load(path, &width, &height, &channels, 0));
@@ -253,34 +269,54 @@ int main(int argc, char** argv) {
   // core->free_excess_memory();
 
 
-  std::string img_root_dir = "path_to_2d_raw/camid_directory";
-  std::string pc_root_dir = "path_to_3d_raw/os1_directory"
-  for (size_t frame_idx=0; frame_idx<10; frame_idx++) {
-    // TODO: Format strings for current frames' images and point cloud [Arsh]
+  std::string img_root_dir = "path_to_2d_raw/camid_directory/";
+  std::string pc_root_dir = "path_to_3d_raw/os1_directory/";
 
-    // TODO: Modify load_images(cam_dir, camid, seq, frame) to load images from our dataset [Arsh]
-    // Load image and lidar to host
-    auto images = load_images(data);
+  int count = 0;
+  std::vector<int> seqList = {0,1,2,3,4,5,6,7,8,9,10,11,44,45};
+  std::vector<int> num_of_frames_per_seq = {7585, 8717, 13399, 5182, 4797, 4532, 4294, 25278, 10243, 604, 7934, 1574, 1412};
+  int num_of_frames_per_seq_iter = 0;
 
-    // TODO: Add load lidar_points(lidar_dir, seq, frame) to load point cloud from our dataset [Arnav]
-    auto lidar_points = nv::Tensor::load(nv::format("%s/points.tensor", data), false);
-    
-    // warmup
-    auto bboxes =
+  for(int seqNum : seqList) {
+      if (count == 10) {
+          break;
+      }
+      auto imageFiles = load_sequence(img_root_dir, seqNum);
+      // Get the frame number for the sequences
+      for (int frame_idx=0; frame_idx < num_of_frames_per_seq[num_of_frames_per_seq_iter]; frame_idx++) {
+        // TODO: Format strings for current frames' images and point cloud [Arsh]
+        
+        // TODO: Modify load_images(cam_dir, camid, seq, frame) to load images from our dataset [Arsh]
+        // Load image and lidar to host
+        count++;
+        if (count == 10) {
+          break;
+        }
+        
+        auto images = load_images(img_root_dir, seqNum, imageFiles[frame_idx]);
+        
+        // TODO: Add load lidar_points(lidar_dir, seq, frame) to load point cloud from our dataset [Arnav]
+        auto lidar_points = nv::Tensor::load(nv::format("%s/points.tensor", data), false);
+
+        // warmup
+        auto bboxes =
+            core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
+
+        // evaluate inference time
+        // for (int i = 0; i < 5; ++i) {
         core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
+        // }
 
-    // evaluate inference time
-    // for (int i = 0; i < 5; ++i) {
-    core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
-    // }
+        // visualize and save to jpg
+        // TODO: Modify visualize to save frames individually for our dataset [Arnav]
+        visualize(bboxes, lidar_points, images, lidar2image, "build/cuda-bevfusion.jpg", stream);
 
-    // visualize and save to jpg
-    // TODO: Modify visualize to save frames individually for our dataset [Arnav]
-    visualize(bboxes, lidar_points, images, lidar2image, "build/cuda-bevfusion.jpg", stream);
-
-    // destroy memory
-    free_images(images);
-    checkRuntime(cudaStreamDestroy(stream));
+        // destroy memory
+        free_images(images);
+        checkRuntime(cudaStreamDestroy(stream));
+      }
+      num_of_frames_per_seq_iter++;
   }
+  
   return 0;
 }
