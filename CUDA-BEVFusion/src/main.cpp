@@ -26,7 +26,6 @@
 
 #include <vector>
 #include <iostream>
-#include <filesystem>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -40,24 +39,7 @@
 #include "common/timer.hpp"
 #include "common/visualize.hpp"
 
-namespace fs = std::filesystem;
-
-std::vector<std::string> load_sequences(const std::string& directoryPath, int seqNum) {
-  std::vector<std::vector<std::string>> files;
-  
-  for(int i = 0; i < 5; i++) {
-    sprintf(tempDirectoryPath, "%s/%s%d/%s", directoryPath, "cam", i, seqNum);
-    for (const auto& entry : fs::directory_iterator(tempDirectoryPath)) {
-        if (entry.is_regular_file()) {
-            files.push_back(entry.path().string());
-        }
-    }
-  }
-    
-    return files;
-}
-
-static std::vector<unsigned char*> load_images(const std::string& root, int seqNum, const std::vector<std::vector<std::string>> imageFiles) {
+static std::vector<unsigned char*> load_images(const std::string& root, int seqNum, int frameIdx) {
 
   std::vector<unsigned char*> images;
 
@@ -65,9 +47,9 @@ static std::vector<unsigned char*> load_images(const std::string& root, int seqN
   for (int i = 0; i < 5; i++) {
     char path[200];
 
-    // example = 2d_raw/cam0/1/2d_raw_cam0_1_98.jpg
-    sprintf(path, "%s/%s%d/%d/%s", root.c_str(), "cam", i, seqNum, imageFiles[seqNum][frameIdx]);
-    
+    // example = 2d_raw/cam0/1/2d_raw_cam0_1_4.jpg
+    sprintf(path, "%s/%s%d/%d/%s%d_%d_%d.jpg", root.c_str(), "cam", i, seqNum, "2d_raw_cam", i, seqNum, frameIdx);
+    std::cout << path << std::endl;
     int width, height, channels;
     images.push_back(stbi_load(path, &width, &height, &channels, 0));
     // printf("Image info[%d]: %d x %d : %d\n", i, width, height, channels);
@@ -120,8 +102,8 @@ static void visualize(const std::vector<bevfusion::head::transbbox::BoundingBox>
 
   nv::ImageArtistParameter image_artist_param;
   image_artist_param.num_camera = images.size();
-  image_artist_param.image_width = 1600;
-  image_artist_param.image_height = 900;
+  image_artist_param.image_width = 960;
+  image_artist_param.image_height = 600;
   image_artist_param.image_stride = image_artist_param.image_width * 3;
   image_artist_param.viewport_nx4x4.resize(images.size() * 4 * 4);
   memcpy(image_artist_param.viewport_nx4x4.data(), lidar2image.ptr<float>(),
@@ -170,11 +152,11 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
 
   printf("Create by %s, %s\n", model.c_str(), precision.c_str());
   bevfusion::camera::NormalizationParameter normalization;
-  normalization.image_width = 1600;
-  normalization.image_height = 900;
+  normalization.image_width = 960;
+  normalization.image_height = 600;
   normalization.output_width = 704;
   normalization.output_height = 256;
-  normalization.num_camera = 6;
+  normalization.num_camera = 5;
   normalization.resize_lim = 0.48f;
   normalization.interpolation = bevfusion::camera::Interpolation::Bilinear;
 
@@ -213,7 +195,7 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
   geometry.image_height = 256;
   geometry.feat_width = 88;
   geometry.feat_height = 32;
-  geometry.num_camera = 6;
+  geometry.num_camera = 5;
   geometry.geometry_dim = nvtype::Int3(360, 360, 80);
 
   bevfusion::head::transbbox::TransBBoxParameter transbbox;
@@ -266,6 +248,7 @@ int main(int argc, char** argv) {
 
   // Load matrix to host
   auto camera2lidar = nv::Tensor::load(nv::format("%s/camera2lidar.tensor", data), false);
+  camera2lidar.print("camera2lidar", 0, 96, 6);
   auto camera_intrinsics = nv::Tensor::load(nv::format("%s/camera_intrinsics.tensor", data), false);
   auto lidar2image = nv::Tensor::load(nv::format("%s/lidar2image.tensor", data), false);
   auto img_aug_matrix = nv::Tensor::load(nv::format("%s/img_aug_matrix.tensor", data), false);
@@ -274,31 +257,22 @@ int main(int argc, char** argv) {
   // core->free_excess_memory();
 
 
-  std::string img_root_dir = "path_to_2d_raw/camid_directory/";
-  std::string pc_root_dir = "path_to_3d_raw/os1_directory/";
+  std::string img_root_dir = "/media/warthog/Art_SSD/ecocar_processed/CACCDataset/2d_raw";
+  std::string pc_root_dir = "/media/warthog/Art_SSD/ecocar_processed/CACCDataset/3d_raw";
 
-  int count = 0;
-  std::vector<int> seqList = {0,1,2,3,4,5,6,7,8,9,10,11,44,45};
-  std::vector<int> num_of_frames_per_seq = {7585, 8717, 13399, 5182, 4797, 4532, 4294, 25278, 10243, 604, 7934, 1574, 1412};
+  std::vector<int> seqList = {0,1};
+  std::vector<int> num_of_frames_per_seq = {10, 10};
   int num_of_frames_per_seq_iter = 0;
 
   for(int seqNum : seqList) {
-      if (count == 10) {
-          break;
-      }
-      auto imageFiles = load_sequences(img_root_dir, seqNum);
       // Get the frame number for the sequences
-      for (int frame_idx=0; frame_idx < num_of_frames_per_seq[num_of_frames_per_seq_iter]; frame_idx++) {
+      for (int frame_idx=0; frame_idx < num_of_frames_per_seq[num_of_frames_per_seq_iter]; ++frame_idx) {
         // TODO: Format strings for current frames' images and point cloud [Arsh]
         
         // TODO: Modify load_images(cam_dir, camid, seq, frame) to load images from our dataset [Arsh]
         // Load image and lidar to host
-        count++;
-        if (count == 10) {
-          break;
-        }
         
-        auto images = load_images(img_root_dir, seqNum, imageFiles);
+        auto images = load_images(img_root_dir, seqNum, frame_idx);
         
         // TODO: Add load lidar_points(lidar_dir, seq, frame) to load point cloud from our dataset [Arnav]
         auto lidar_points = nv::Tensor::load(nv::format("%s/points.tensor", data), false);

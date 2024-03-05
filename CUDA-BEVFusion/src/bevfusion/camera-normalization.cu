@@ -202,12 +202,14 @@ class NormalizationImplement : public Normalization {
   bool init(const NormalizationParameter& param) {
     this->param_ = param;
 
-    int resized_width = static_cast<int>(param.image_width * param.resize_lim);
-    int resized_height = static_cast<int>(param.image_height * param.resize_lim);
+    int resize_lim_x = 0.8;
+    int resize_lim_y = 0.72;
+    int resized_width = static_cast<int>(param.image_width * resize_lim_x); // param.resize_lim);
+    int resized_height = static_cast<int>(param.image_height * resize_lim_y); // param.resize_lim);
     this->crop_x_ = (resized_width - param.output_width) / 2;
     this->crop_y_ = resized_height - param.output_height;
-    this->sx_ = 1.0f / param.resize_lim;
-    this->sy_ = 1.0f / param.resize_lim;
+    this->sx_ = 1.0f / resize_lim_x; // param.resize_lim;
+    this->sy_ = 1.0f / resize_lim_y; // param.resize_lim;
 
     checkRuntime(cudaMalloc(&raw_images_, param.image_width * param.image_height * 3 * param.num_camera * sizeof(unsigned char)));
     checkRuntime(cudaMalloc(&normalize_images_, param.output_width * param.output_height * 3 * param.num_camera * sizeof(half)));

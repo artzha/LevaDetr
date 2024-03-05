@@ -1,5 +1,8 @@
 # CUDA-BEVFusion
 
+Enabling orin with max clock speed
+sudo /usr/sbin/nvpmodel -m 0
+
 This repository contains sources and model for [BEVFusion](https://github.com/mit-han-lab/bevfusion) inference using CUDA & TensorRT.
 ![title](/assets/bevfusion.png)
 
