@@ -202,8 +202,8 @@ class NormalizationImplement : public Normalization {
   bool init(const NormalizationParameter& param) {
     this->param_ = param;
 
-    int resize_lim_x = 0.8;
-    int resize_lim_y = 0.72;
+    float resize_lim_x = 0.8f;
+    float resize_lim_y = 0.72f;
     int resized_width = static_cast<int>(param.image_width * resize_lim_x); // param.resize_lim);
     int resized_height = static_cast<int>(param.image_height * resize_lim_y); // param.resize_lim);
     this->crop_x_ = (resized_width - param.output_width) / 2;
