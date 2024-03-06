@@ -54,6 +54,12 @@ static std::vector<unsigned char*> load_images(const std::string& root, int seqN
     images.push_back(stbi_load(path, &width, &height, &channels, 0));
     // printf("Image info[%d]: %d x %d : %d\n", i, width, height, channels);
   }
+  char path[200];
+  // Duplicate last frame for compatibility
+  sprintf(path, "%s/%s%d/%d/%s%d_%d_%d.jpg", root.c_str(), "cam", 4, seqNum, "2d_raw_cam", 4, seqNum, frameIdx);
+  std::cout << path << std::endl;
+  int width, height, channels;
+  images.push_back(stbi_load(path, &width, &height, &channels, 0));
   return images;
 }
 
@@ -66,9 +72,10 @@ static void free_images(std::vector<unsigned char*>& images) {
 static void visualize(const std::vector<bevfusion::head::transbbox::BoundingBox>& bboxes, const nv::Tensor& lidar_points,
                       const std::vector<unsigned char*> images, const nv::Tensor& lidar2image, const std::string& save_path,
                       cudaStream_t stream) {
+  printf("Entered visualize");
   std::vector<nv::Prediction> predictions(bboxes.size());
   memcpy(predictions.data(), bboxes.data(), bboxes.size() * sizeof(nv::Prediction));
-
+  printf("Copied predictions");
   int padding = 300;
   int lidar_size = 1024;
   int content_width = lidar_size + padding * 3;
@@ -77,13 +84,13 @@ static void visualize(const std::vector<bevfusion::head::transbbox::BoundingBox>
   scene_artist_param.width = content_width;
   scene_artist_param.height = content_height;
   scene_artist_param.stride = scene_artist_param.width * 3;
-
+  
   nv::Tensor scene_device_image(std::vector<int>{scene_artist_param.height, scene_artist_param.width, 3}, nv::DataType::UInt8);
   scene_device_image.memset(0x00, stream);
-
+  printf("Created scene device");
   scene_artist_param.image_device = scene_device_image.ptr<unsigned char>();
   auto scene = nv::create_scene_artist(scene_artist_param);
-
+  printf("Created scene artist");
   nv::BEVArtistParameter bev_artist_param;
   bev_artist_param.image_width = content_width;
   bev_artist_param.image_height = content_height;
@@ -95,11 +102,16 @@ static void visualize(const std::vector<bevfusion::head::transbbox::BoundingBox>
 
   auto points = lidar_points.to_device();
   auto bev_visualizer = nv::create_bev_artist(bev_artist_param);
+  printf("Started draw points");
   bev_visualizer->draw_lidar_points(points.ptr<nvtype::half>(), points.size(0));
+  printf("Started draw prediction");
   bev_visualizer->draw_prediction(predictions, false);
+  printf("Started draw ego");
   bev_visualizer->draw_ego();
+  printf("Started apply");
   bev_visualizer->apply(scene_device_image.ptr<unsigned char>(), stream);
 
+  printf("Started memcpy");
   nv::ImageArtistParameter image_artist_param;
   image_artist_param.num_camera = images.size();
   image_artist_param.image_width = 960;
@@ -120,16 +132,17 @@ static void visualize(const std::vector<bevfusion::head::transbbox::BoundingBox>
       {-content_width / 2 + gap, +content_height / 2 - camera_height - camera_height / 2, 0},
       {content_width / 2 - camera_width - gap, +content_height / 2 - camera_height - camera_height / 2, 1}};
 
+  std::cout << "Started for loop" << std::endl;
   auto visualizer = nv::create_image_artist(image_artist_param);
   for (size_t icamera = 0; icamera < images.size(); ++icamera) {
     int ox = offset_cameras[icamera][0] + content_width / 2;
     int oy = offset_cameras[icamera][1] + content_height / 2;
     bool xflip = static_cast<bool>(offset_cameras[icamera][2]);
+    printf("Started draw prediction");
     visualizer->draw_prediction(icamera, predictions, xflip);
-
-    nv::Tensor device_image(std::vector<int>{900, 1600, 3}, nv::DataType::UInt8);
+    nv::Tensor device_image(std::vector<int>{600, 960, 3}, nv::DataType::UInt8);
     device_image.copy_from_host(images[icamera], stream);
-
+    printf("Finished draw prediction");
     if (xflip) {
       auto clone = device_image.clone(stream);
       scene->flipx(clone.ptr<unsigned char>(), clone.size(1), clone.size(1) * 3, clone.size(0), device_image.ptr<unsigned char>(),
@@ -156,7 +169,7 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
   normalization.image_height = 600;
   normalization.output_width = 704;
   normalization.output_height = 256;
-  normalization.num_camera = 5;
+  normalization.num_camera = 6;
   normalization.resize_lim = 0.48f;
   normalization.interpolation = bevfusion::camera::Interpolation::Bilinear;
 
@@ -195,7 +208,7 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
   geometry.image_height = 256;
   geometry.feat_width = 88;
   geometry.feat_height = 32;
-  geometry.num_camera = 5;
+  geometry.num_camera = 6;
   geometry.geometry_dim = nvtype::Int3(360, 360, 80);
 
   bevfusion::head::transbbox::TransBBoxParameter transbbox;
@@ -273,10 +286,10 @@ int main(int argc, char** argv) {
         // Load image and lidar to host
         
         auto images = load_images(img_root_dir, seqNum, frame_idx);
-        
+        printf("Loaded images for frame %i\n", frame_idx);
         // TODO: Add load lidar_points(lidar_dir, seq, frame) to load point cloud from our dataset [Arnav]
-        auto lidar_points = nv::Tensor::load(nv::format("%s/points.tensor", data), false);
-
+        auto lidar_points = nv::Tensor::load(nv::format("%s/points_test.tensor", data), false);
+        printf("Loaded point cloud for frame %i\n", frame_idx);
         // warmup
         auto bboxes =
             core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
@@ -285,17 +298,21 @@ int main(int argc, char** argv) {
         // for (int i = 0; i < 5; ++i) {
         core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
         // }
-
+        printf("Ran double forward pass for frame %i\n", frame_idx);
         // visualize and save to jpg
         // TODO: Modify visualize to save frames individually for our dataset [Arnav]
         visualize(bboxes, lidar_points, images, lidar2image, "build/cuda-bevfusion.jpg", stream);
+        printf("Visualized frame %i\n", frame_idx);
 
         // destroy memory
         free_images(images);
-        checkRuntime(cudaStreamDestroy(stream));
+        // checkRuntime(cudaStreamDestroy(stream));
+        printf("Destroyed frame %i\n", frame_idx);
+        break;
       }
       num_of_frames_per_seq_iter++;
   }
+  checkRuntime(cudaStreamDestroy(stream));
   
   return 0;
 }
