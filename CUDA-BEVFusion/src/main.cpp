@@ -39,7 +39,11 @@
 #include "common/timer.hpp"
 #include "common/visualize.hpp"
 
-static std::vector<unsigned char*> load_images(const std::string& root, int seqNum, int frameIdx) {
+static std::vector<unsigned char*> load_images(
+  const std::vector<std::string>& root, 
+  const std::vector<std::string>& modality_prefix,
+  int seqNum, 
+  int frameIdx) {
 
   std::vector<unsigned char*> images;
 
@@ -48,7 +52,7 @@ static std::vector<unsigned char*> load_images(const std::string& root, int seqN
     char path[200];
 
     // example = 2d_raw/cam0/1/2d_raw_cam0_1_4.jpg
-    sprintf(path, "%s/%s%d/%d/%s%d_%d_%d.jpg", root.c_str(), "cam", i, seqNum, "2d_raw_cam", i, seqNum, frameIdx);
+    sprintf(path, "%s/%s%d/%d/%s%d_%d_%d.jpg", root[i].c_str(), "cam", i, seqNum, modality_prefix[i].c_str(), i, seqNum, frameIdx);
     std::cout << path << std::endl;
     int width, height, channels;
     images.push_back(stbi_load(path, &width, &height, &channels, 0));
@@ -56,7 +60,7 @@ static std::vector<unsigned char*> load_images(const std::string& root, int seqN
   }
   char path[200];
   // Duplicate last frame for compatibility
-  sprintf(path, "%s/%s%d/%d/%s%d_%d_%d.jpg", root.c_str(), "cam", 4, seqNum, "2d_raw_cam", 4, seqNum, frameIdx);
+  sprintf(path, "%s/%s%d/%d/%s%d_%d_%d.jpg", root[4].c_str(), "cam", 4, seqNum, modality_prefix[4].c_str(), 4, seqNum, frameIdx);
   std::cout << path << std::endl;
   int width, height, channels;
   images.push_back(stbi_load(path, &width, &height, &channels, 0));
@@ -170,6 +174,7 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
   normalization.output_width = 704;
   normalization.output_height = 256;
   normalization.num_camera = 6;
+  // normalization.resize_lim = 1.0;
   normalization.resize_lim = 0.48f;
   normalization.interpolation = bevfusion::camera::Interpolation::Bilinear;
 
@@ -234,7 +239,7 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
 
 int main(int argc, char** argv) {
 
-  const char* data      = "example-data";
+  const char* data      = "example-data/leva_tensors";
   const char* model     = "resnet50int8";
   const char* precision = "int8";
 
@@ -261,20 +266,37 @@ int main(int argc, char** argv) {
 
   // Load matrix to host
   auto camera2lidar = nv::Tensor::load(nv::format("%s/camera2lidar.tensor", data), false);
-  camera2lidar.print("camera2lidar", 0, 96, 6);
   auto camera_intrinsics = nv::Tensor::load(nv::format("%s/camera_intrinsics.tensor", data), false);
   auto lidar2image = nv::Tensor::load(nv::format("%s/lidar2image.tensor", data), false);
   auto img_aug_matrix = nv::Tensor::load(nv::format("%s/img_aug_matrix.tensor", data), false);
+  camera2lidar.print("camera2lidar", 0, 4, 8);
+  camera_intrinsics.print("camera_intrinsics", 0, 4, 8);
+  lidar2image.print("lidar2image", 0, 4, 8);
+  img_aug_matrix.print("img_aug_matrix", 0, 4, 8);
   core->update(camera2lidar.ptr<float>(), camera_intrinsics.ptr<float>(), lidar2image.ptr<float>(), img_aug_matrix.ptr<float>(),
               stream);
   // core->free_excess_memory();
 
 
-  std::string img_root_dir = "/media/warthog/Art_SSD/ecocar_processed/CACCDataset/2d_raw";
-  std::string pc_root_dir = "/media/warthog/Art_SSD/ecocar_processed/CACCDataset/3d_raw";
+  // std::string img_root_dir = "/media/warthog/Art_SSD/ecocar_processed/CACCDataset/2d_raw";
+  std::vector<std::string> img_root_dir = {
+    "/media/warthog/Art_SSD/ecocar_processed/CACCDataset/2d_raw",
+    "/media/warthog/Art_SSD/ecocar_processed/CACCDataset/2d_raw",
+    "/media/warthog/Art_SSD/ecocar_processed/CACCDataset/2d_undistort",
+    "/media/warthog/Art_SSD/ecocar_processed/CACCDataset/2d_undistort",
+    "/media/warthog/Art_SSD/ecocar_processed/CACCDataset/2d_undistort",
+  };
+  std::vector<std::string> modality_prefix = {
+    "2d_raw_cam",
+    "2d_raw_cam",
+    "2d_undistort_cam",
+    "2d_undistort_cam",
+    "2d_undistort_cam",
+  };
+  std::string pc_root_dir = std::string(data) + "/points";
 
-  std::vector<int> seqList = {0,1};
-  std::vector<int> num_of_frames_per_seq = {10, 10};
+  std::vector<int> seqList = {0};
+  std::vector<int> num_of_frames_per_seq = {10};
   int num_of_frames_per_seq_iter = 0;
 
   for(int seqNum : seqList) {
@@ -285,15 +307,19 @@ int main(int argc, char** argv) {
         // TODO: Modify load_images(cam_dir, camid, seq, frame) to load images from our dataset [Arsh]
         // Load image and lidar to host
         
-        auto images = load_images(img_root_dir, seqNum, frame_idx);
+        auto images = load_images(img_root_dir, modality_prefix, seqNum, frame_idx);
         printf("Loaded images for frame %i\n", frame_idx);
         // TODO: Add load lidar_points(lidar_dir, seq, frame) to load point cloud from our dataset [Arnav]
-        auto lidar_points = nv::Tensor::load(nv::format("%s/points_test.tensor", data), false);
+        std::string pc_path = nv::format("%s/%d/%d.tensor", pc_root_dir.c_str(), seqNum, frame_idx);
+        std::cout << "Loading point cloud for frame " << pc_path << std::endl;
+        auto lidar_points = nv::Tensor::load(pc_path, false);
+
+        lidar_points.print("lidar_points", 0, 5, 8);
         printf("Loaded point cloud for frame %i\n", frame_idx);
         // warmup
         auto bboxes =
             core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
-
+        printf("Ran forward pass for frame %i\n", frame_idx); 
         // evaluate inference time
         // for (int i = 0; i < 5; ++i) {
         core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);

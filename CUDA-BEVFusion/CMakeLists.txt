@@ -38,7 +38,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-std=c++14 -Wextra -Wall -Wno-missing-field-initial
 set(CMAKE_CXX_FLAGS_DEBUG   "-std=c++14 -O0 -g -DENABLE_TEXT_BACKEND_STB")
 
 set(CUDA_NVCC_FLAGS_RELEASE "-Werror=all-warnings -Xcompiler -std=c++14,-Wextra,-Wall,-Wno-deprecated-declarations,-O3 -DENABLE_TEXT_BACKEND_STB")
-set(CUDA_NVCC_FLAGS_DEBUG   "-std=c++14 -O0 -g -DENABLE_TEXT_BACKEND_STB")
+set(CUDA_NVCC_FLAGS_DEBUG   "-std=c++14 -O0 -G -g -lineinfo -DENABLE_TEXT_BACKEND_STB -D_DEBUG")
 
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} 
   -gencode arch=compute_$ENV{CUDASM},code=compute_$ENV{CUDASM}

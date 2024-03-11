@@ -38,4 +38,4 @@ make -j
 
 cd ..
 
-gdb --args ./build/bevfusion $DEBUG_DATA $DEBUG_MODEL $DEBUG_PRECISION
+cuda-gdb --args ./build/bevfusion $DEBUG_DATA $DEBUG_MODEL $DEBUG_PRECISION

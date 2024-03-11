@@ -39,7 +39,7 @@ export DEBUG_MODEL=resnet50int8
 
 # fp16/int8
 export DEBUG_PRECISION=int8
-export DEBUG_DATA=example-data
+export DEBUG_DATA=leva_tensors
 export USE_Python=OFF
 
 # check the configuration path
