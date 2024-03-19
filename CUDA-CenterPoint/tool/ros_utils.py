@@ -127,16 +127,17 @@ def pub_dt_to_rviz(dets, publisher, ts, frame_id, namespace='os_sensor', colorma
     for i, det in enumerate(dets):
         cx, cy, cz, l, w, h, vx, vy, yaw, id, score = det
         roll, pitch = 0, 0 # Assume roll and pitch are 0
+
         if colormap is not None:
             r, g, b = colormap[int(id)]
         else:
             r, g, b = 1.0, 0.0, 0.0
         marker = create_3d_bbox_marker(
-            cx, cy, cz, l, w, h, roll, pitch, yaw, frame_id, ts, namespace, i,
+            cx, cy, cz, l, w, h, roll, pitch, -yaw, frame_id, ts, namespace, i,
             r=r/255.0, g=g/255.0, b=b/255.0, a=1.0
         )
         marker_array.markers.append(marker)
-        # import pdb; pdb.set_trace()
+        
 
     if publish:
         publisher.publish(marker_array)
