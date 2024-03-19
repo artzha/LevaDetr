@@ -33,7 +33,8 @@
 #include "centerpoint.h"
 
 std::string Model_File = "../model/rpn_centerhead_sim.plan";
-std::string Save_Dir   = "../data/prediction/";
+// std::string Save_Dir   = "../data/prediction/";
+std::string Save_Dir   = "../data/leva/prediction/";
 
 void GetDeviceInfo()
 {

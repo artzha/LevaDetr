@@ -1,4 +1,4 @@
-.vscode
+**/.vscode
 data/prediction/
 build/
 data/eval/
@@ -9,4 +9,4 @@ tool/checkpoint/
 tool/data/
 tool/*.pyc
 model/*.plan*
-__pycache__
+**/__pycache__/**

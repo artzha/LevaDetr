@@ -20,11 +20,11 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-trt_version=8503
+trt_version=8502
 
 if [ ! -f "model/rpn_centerhead_sim.plan.${trt_version}" ]; then
     echo Building the model: model/rpn_centerhead_sim.plan.${trt_version}, this will take 2 minutes. Wait a moment 🤗🤗🤗~.
-    trtexec --onnx=model/rpn_centerhead_sim.onnx \
+    /usr/src/tensorrt/bin/trtexec --onnx=model/rpn_centerhead_sim.onnx \
         --saveEngine=model/rpn_centerhead_sim.plan.${trt_version} \
         --workspace=4096 --fp16 --outputIOFormats=fp16:chw \
         --inputIOFormats=fp16:chw --verbose --dumpLayerInfo \
