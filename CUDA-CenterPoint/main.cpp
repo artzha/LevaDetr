@@ -32,9 +32,47 @@
 #include "common.h"
 #include "centerpoint.h"
 
-std::string Model_File = "../model/rpn_centerhead_sim.plan";
+std::string Model_File = "../model/voxelnet_centerhead_sim.plan";
 // std::string Save_Dir   = "../data/prediction/";
 std::string Save_Dir   = "../data/leva/prediction/";
+
+// ROS Related Imports here
+// #include "ros/ros.h"
+// #include "sensor_msgs/PointCloud2.h"
+// #include "jsk_recognition_msgs/BoundingBox.h"
+// #include "jsk_recognition_msgs/BoundingBoxArray.h"
+// #include "/home/warthog/amrl_msgs/msg/BBox3DMsg.msg"
+
+// TODO: Write custom ROS message type for bounding box 
+// x y z l w h yaw vx vy id confidence
+
+// Initialize std::queue for point cloud
+#include <queue>
+// queue<size_t> pc_queue; 
+
+// void cloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg) {
+//     // TODO: Implement this callback
+// }
+
+// void bboxPublisher(const std::vector<Bndbox>& boxes) {
+//     // TODO: Implement this bounding box callback to publish bounding boxes
+//     for (const auto& box : boxes) {
+//         // amrl_msgs::msg::BBox3DMsg msg; // Adjust namespace to your package
+//         // msg.x = box.x;
+//         // msg.y = box.y;
+//         // msg.z = box.z;
+//         // msg.l = box.l;
+//         // msg.w = box.w;
+//         // msg.h = box.h;
+//         // msg.yaw = box.yaw;
+//         // msg.vx = box.vx;
+//         // msg.vy = box.vy;
+//         // msg.id = box.id; // Assuming `id` is already a string. If not, convert it.
+//         // msg.confidence = box.confidence;
+
+//         // bbox_pub.publish(msg);
+//     }
+// }
 
 void GetDeviceInfo()
 {
@@ -200,6 +238,31 @@ int main(int argc, const char **argv)
     CenterPoint centerpoint(Model_File, verbose);
     centerpoint.prepare();
 
+    // TODO: Replace for loop over file path list with ros subscriber for point clouds and while loop
+    //
+    // Initialize ros subscriber
+    //
+    //
+    //
+    // while (ros::ok()) {
+    //	if point cloud queue is not empty()
+    //		Run inference on our point cloud
+    //		Publish bounding box detection x y z l w h yaw vs vy id confidence
+    //
+    // }
+    //
+
+    // ros::init(argc, argv, "point_cloud_subscriber");
+    // ros::NodeHandle nh;
+    // ros::Subscriber sub = nh.subscribe<sensor_msgs::PointCloud2>("point_cloud_topic", 10, cloudCallBack);
+    // ros::spin();
+
+    // while (ros::ok()) {
+    //     if (pc_queue.empty()) {
+    //         bboxPublisher();
+    //     }
+    // }
+
     float *d_points = nullptr;    
     checkCudaErrors(cudaMalloc((void **)&d_points, MAX_POINTS_NUM * params.feature_num * sizeof(float)));
     for (const auto & file : files)
@@ -215,6 +278,7 @@ int main(int argc, const char **argv)
         loadData(dataFile.c_str() , &pc_data, &length);
         size_t points_num = length / (params.feature_num * sizeof(float)) ;
         std::cout << "find points num: " << points_num << std::endl;
+        std::cout << "length of points" << length << std::endl;
 
         checkCudaErrors(cudaMemcpy(d_points, pc_data, length, cudaMemcpyHostToDevice));
 

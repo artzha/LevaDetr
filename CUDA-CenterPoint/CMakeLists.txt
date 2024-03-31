@@ -48,7 +48,19 @@ include_directories(
   ${TENSORRT_INCLUDE}
   3rdparty/libspconv/include
   include
+  # $ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake
 )
+
+# ROSBUILD_INIT()
+# set(ROS_BUILD_STATIC_LIBS true)
+# set(ROS_BUILD_SHARED_LIBS false)
+
+# set(libs roslib roscpp rosbag)
+
+# MESSAGE(STATUS "ROS-Overrride Build Type: ${CMAKE_BUILD_TYPE}")
+
+# ROSBUILD_ADD_EXECUTABLE(main.cpp)
+
 
 link_directories(
   ${TENSORRT_LIB}

@@ -34,6 +34,7 @@
 #include "timer.hpp"
 
 typedef struct float11 { float val[11]; } float11;
+typedef struct float9 { float val[9]; } float9;
 
 class CenterPoint {
   private:
@@ -68,14 +69,15 @@ class CenterPoint {
     int height_c_;
     int dim_c_;
     int rot_c_;
-    int vel_c_;
+    // int vel_c_;
     int hm_c_[NUM_TASKS];
 
     half* d_voxel_features;
     unsigned int* d_voxel_indices;
     std::vector<int> sparse_shape;
 
-    std::vector<float11> detections_;
+    // std::vector<float11> detections_;
+    std::vector<float9> detections_;
     unsigned int h_mask_size_;
     uint64_t* h_mask_ = nullptr;
     EventTimer timer_;

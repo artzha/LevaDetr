@@ -30,6 +30,7 @@ from onnxsim import simplify
 import numpy as np
 from torch import nn
 
+import sklearn # Add this: https://forums.developer.nvidia.com/t/install-scikit-in-jetson-agx-orin/268194/7
 from det3d.datasets import build_dataloader, build_dataset
 from det3d.models import build_detector
 from det3d.core import box_torch_ops
@@ -46,12 +47,18 @@ def simplify_model(model_path):
 def arg_parser():
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--checkpoint', dest='checkpoint',
-                        default='tool/checkpoint/epoch_20.pth', action='store',
+                        # default='tool/checkpoint/epoch_20.pth', 
+                        default='/media/warthog/Art_SSD/waymo_centerpoint_checkpoint/waymo_centerpoint_voxelnet_3x/epoch_36.pth',
+                        action='store',
                         type=str, help='checkpoint')
     parser.add_argument('--config', dest='config',
-                        default='CenterPoint/configs/nusc/voxelnet/nusc_centerpoint_voxelnet_0075voxel_fix_bn_z.py', action='store',
+                        # default='CenterPoint/configs/nusc/voxelnet/nusc_centerpoint_voxelnet_0075voxel_fix_bn_z.py', action='store',
+                        default='CenterPoint/configs/waymo/voxelnet/waymo_centerpoint_voxelnet_3x.py', action='store',
                         type=str, help='config')
-    parser.add_argument("--save-onnx", type=str, default="rpn_centerhead_sim.onnx", help="output onnx")
+    parser.add_argument("--save-onnx", type=str, 
+                        # default="rpn_centerhead_sim.onnx", 
+                        default="./model/voxelnet_centerhead_sim.onnx",
+                        help="output onnx")
     parser.add_argument("--export-only", action="store_true")
     parser.add_argument("--half", action="store_true")
     args = parser.parse_args()
@@ -61,7 +68,7 @@ class CenterPointVoxelNet_Post(nn.Module):
     def __init__(self, model):
         super(CenterPointVoxelNet_Post, self).__init__()
         self.model = model
-        assert( len(self.model.bbox_head.tasks) == 6 )
+        assert( len(self.model.bbox_head.tasks) == 1 )
 
     def forward(self, x):
         x = self.model.neck(x)
@@ -69,14 +76,16 @@ class CenterPointVoxelNet_Post(nn.Module):
         
         pred = [ task(x) for task in self.model.bbox_head.tasks ]
 
-        return pred[0]['reg'], pred[0]['height'], pred[0]['dim'], pred[0]['rot'], pred[0]['vel'], pred[0]['hm'], \
-        pred[1]['reg'], pred[1]['height'], pred[1]['dim'], pred[1]['rot'], pred[1]['vel'], pred[1]['hm'], \
-        pred[2]['reg'], pred[2]['height'], pred[2]['dim'], pred[2]['rot'], pred[2]['vel'], pred[2]['hm'], \
-        pred[3]['reg'], pred[3]['height'], pred[3]['dim'], pred[3]['rot'], pred[3]['vel'], pred[3]['hm'], \
-        pred[4]['reg'], pred[4]['height'], pred[4]['dim'], pred[4]['rot'], pred[4]['vel'], pred[4]['hm'], \
-        pred[5]['reg'], pred[5]['height'], pred[5]['dim'], pred[5]['rot'], pred[5]['vel'], pred[5]['hm']
+        return pred[0]['reg'], pred[0]['height'], pred[0]['dim'], pred[0]['rot'], pred[0]['hm']
+        # , \
+        # pred[1]['reg'], pred[1]['height'], pred[1]['dim'], pred[1]['rot'], vel, pred[1]['hm'], \
+        # pred[2]['reg'], pred[2]['height'], pred[2]['dim'], pred[2]['rot'], vel, pred[2]['hm'], \
+        # pred[3]['reg'], pred[3]['height'], pred[3]['dim'], pred[3]['rot'], vel, pred[3]['hm'], \
+        # pred[4]['reg'], pred[4]['height'], pred[4]['dim'], pred[4]['rot'], vel, pred[4]['hm'], \
+        # pred[5]['reg'], pred[5]['height'], pred[5]['dim'], pred[5]['rot'], vel, pred[5]['hm']
 
-def predict(reg, hei, dim, rot, vel, hm, test_cfg):
+# def predict(reg, hei, dim, rot, vel, hm, test_cfg):
+def predict(reg, hei, dim, rot, hm, test_cfg): #Waymo
     """decode, nms, then return the detection result.
     """
     # convert N C H W to N H W C
@@ -84,7 +93,7 @@ def predict(reg, hei, dim, rot, vel, hm, test_cfg):
     hei = hei.permute(0, 2, 3, 1).contiguous()
     dim = dim.permute(0, 2, 3, 1).contiguous()
     rot = rot.permute(0, 2, 3, 1).contiguous()
-    vel = vel.permute(0, 2, 3, 1).contiguous()
+    # vel = vel.permute(0, 2, 3, 1).contiguous()
     hm = hm.permute(0, 2, 3, 1).contiguous()
 
     hm = torch.sigmoid(hm)
@@ -100,7 +109,7 @@ def predict(reg, hei, dim, rot, vel, hm, test_cfg):
     rot = rot.reshape(batch, H*W, 1)
     dim = dim.reshape(batch, H*W, 3)
     hm = hm.reshape(batch, H*W, num_cls)
-    vel = vel.reshape(batch, H*W, 2)
+    # vel = vel.reshape(batch, H*W, 2)
 
     ys, xs = torch.meshgrid([torch.arange(0, H), torch.arange(0, W)])
     ys = ys.view(1, H, W).repeat(batch, 1, 1).to(hm)
@@ -112,7 +121,8 @@ def predict(reg, hei, dim, rot, vel, hm, test_cfg):
     xs = xs * test_cfg.out_size_factor * test_cfg.voxel_size[0] + test_cfg.pc_range[0]
     ys = ys * test_cfg.out_size_factor * test_cfg.voxel_size[1] + test_cfg.pc_range[1]
 
-    box_preds = torch.cat([xs, ys, hei, dim, vel, rot], dim=2)
+    # box_preds = torch.cat([xs, ys, hei, dim, vel, rot], dim=2)
+    box_preds = torch.cat([xs, ys, hei, dim, rot], dim=2) # Waymo
 
     box_preds = box_preds[0]
     hm_preds = hm[0]
@@ -122,7 +132,7 @@ def predict(reg, hei, dim, rot, vel, hm, test_cfg):
     score_mask = scores > test_cfg.score_threshold
 
     post_center_range = test_cfg.post_center_limit_range
-
+    
     if len(post_center_range) > 0:
         post_center_range = torch.tensor(
             post_center_range,
@@ -157,17 +167,20 @@ def main(args):
 
     # Get 1 frame data as model.reader input
     example = dict()
-    test_pkl = 'data/pkl/nusc_test_in.pkl'
-    gt_pkl = 'data/pkl/nusc_gt_out_fp32.pkl'
+    test_pkl = 'data/waymo/pkl/waymo1sweep_in.pkl' # Waymo
+    gt_pkl = "data/waymo/pkl/waymo1sweep_out_fp32.pkl"# Waymo no gt pkl for now
+    # test_pkl = 'data/pkl/nusc_test_in.pkl'
+    # gt_pkl = 'data/pkl/nusc_gt_out_fp32.pkl' # Not used for Waymo Export
     if args.half:
-        gt_pkl = 'data/pkl/nusc_gt_out_fp16.pkl'
+        # gt_pkl = 'data/pkl/nusc_gt_out_fp16.pkl'
+        gt_pkl = 'data/waymo/pkl/waymo1sweep_out_fp16.pkl'
 
     if os.path.isfile(test_pkl):
         with open(test_pkl, 'rb') as handle:
             example = pickle.load(handle)
     else:
         dataset = build_dataset(cfg.data.val)
-
+        # TODO Setup centerpoint to generate sample waymo pkl
         data_loader = build_dataloader(
             dataset,
             batch_size=1,
@@ -177,6 +190,8 @@ def main(args):
         )
         data_iter = iter(data_loader)
         data_batch = next(data_iter)
+
+        # TODO: Add support for multiple frames
         example = example_to_device(data_batch, torch.device("cuda"), non_blocking=False)
         with open(test_pkl, 'wb') as handle:
             pickle.dump(example, handle)
@@ -188,7 +203,7 @@ def main(args):
     model = build_detector(cfg.model, train_cfg=None, test_cfg=cfg.test_cfg)
     load_checkpoint(model, args.checkpoint, map_location="cpu")
     post_model = CenterPointVoxelNet_Post(model)
-
+    
     if args.half:
         model.eval().half()
         post_model.eval().half()
@@ -217,22 +232,23 @@ def main(args):
         x, _ = model.backbone(
             input_features, input_indices, example["batch_size"], example["input_shape"]
             )
-
+        
         rpn_input  = torch.zeros(x.shape,dtype=torch.float32,device=torch.device("cuda"))
         if args.half:
             rpn_input  = rpn_input.half()
 
         torch.onnx.export(post_model, rpn_input, "tmp.onnx",
-            export_params=True, opset_version=11, do_constant_folding=True,
+            export_params=True, opset_version=10, do_constant_folding=True,
             keep_initializers_as_inputs=False, input_names = ['input'],
-            output_names = ['reg_0', 'height_0', 'dim_0', 'rot_0', 'vel_0', 'hm_0',
-                            'reg_1', 'height_1', 'dim_1', 'rot_1', 'vel_1', 'hm_1',
-                            'reg_2', 'height_2', 'dim_2', 'rot_2', 'vel_2', 'hm_2',
-                            'reg_3', 'height_3', 'dim_3', 'rot_3', 'vel_3', 'hm_3',
-                            'reg_4', 'height_4', 'dim_4', 'rot_4', 'vel_4', 'hm_4',
-                            'reg_5', 'height_5', 'dim_5', 'rot_5', 'vel_5', 'hm_5'],
+            # output_names = ['reg_0', 'height_0', 'dim_0', 'rot_0', 'vel_0', 'hm_0', # nuScenes
+            #                 'reg_1', 'height_1', 'dim_1', 'rot_1', 'vel_1', 'hm_1',
+            #                 'reg_2', 'height_2', 'dim_2', 'rot_2', 'vel_2', 'hm_2',
+            #                 'reg_3', 'height_3', 'dim_3', 'rot_3', 'vel_3', 'hm_3',
+            #                 'reg_4', 'height_4', 'dim_4', 'rot_4', 'vel_4', 'hm_4',
+            #                 'reg_5', 'height_5', 'dim_5', 'rot_5', 'vel_5', 'hm_5'],
+            output_names = ['reg_0', 'height_0', 'dim_0', 'rot_0', 'hm_0'], # Waymo
             )
-
+  
         sim_model, check = simplify_model("tmp.onnx")
         if not check:
             print("[ERROR]:Simplify %s error!"% "tmp.onnx")
@@ -246,9 +262,11 @@ def main(args):
             box3d_lidar = torch.tensor([])
             scores = torch.tensor([])
             label_preds = torch.tensor([])
-            cls_nums = [0,1,3,5,6,8]
+            # cls_nums = [0,1,3,5,6,8]
+            cls_nums = [0, 1, 2] # WAYMO CHANGE
 
-            for i in range(0, 6):
+            # for i in range(0, 6):
+            for i in range(0, 1): # WAYMO CHANGE
                 [reg, height, dim, rot, vel, hm] = post_model(x)[i * 6 : (i + 1) * 6]
                 gt_output = predict(reg, height, dim, rot, vel, hm, cfg.test_cfg)
                 box3d_lidar = torch.cat((box3d_lidar, gt_output['box3d_lidar'].cpu()), axis = 0)
@@ -285,7 +303,8 @@ def main(args):
             x = model.neck(x)
             preds, _ = model.bbox_head(x)
 
-            assert(len(preds) == 6)
+            # assert(len(preds) == 6) # nuscenes
+            assert(len(preds) == 1) # waymo only have one task
 
             gt_output = model.bbox_head.predict(example, preds, cfg.test_cfg)
             with open(gt_pkl, 'wb') as handle:

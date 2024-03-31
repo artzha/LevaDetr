@@ -22,18 +22,18 @@
 
 trt_version=8502
 
-if [ ! -f "model/voxelnet_centerhead_sim.plan.${trt_version}" ]; then
-    echo Building the model: model/voxelnet_centerhead_sim.plan.${trt_version}, this will take 2 minutes. Wait a moment 🤗🤗🤗~.
-    /usr/src/tensorrt/bin/trtexec --onnx=model/voxelnet_centerhead_sim.onnx \
-        --saveEngine=model/voxelnet_centerhead_sim.plan.${trt_version} \
+if [ ! -f "model/centerhead_sim.plan.${trt_version}" ]; then
+    echo Building the model: model/centerpoint.scn.plan.${trt_version}, this will take 2 minutes. Wait a moment 🤗🤗🤗~.
+    /usr/src/tensorrt/bin/trtexec --onnx=model/centerpoint.scn.onnx \
+        --saveEngine=model/centerpoint.scn.plan.${trt_version} \
         --workspace=4096 --fp16 --outputIOFormats=fp16:chw \
         --inputIOFormats=fp16:chw --verbose --dumpLayerInfo \
         --dumpProfile --separateProfileRun \
-        --profilingVerbosity=detailed > model/voxelnet_centerhead_sim.${trt_version}.log 2>&1
+        --profilingVerbosity=detailed > model/centerpoint.scn.${trt_version}.log 2>&1
 
-    rm -rf model/voxelnet_centerhead_sim.plan
+    rm -rf model/centerpoint.scn.plan
     dir=`pwd`
-    ln -s ${dir}/model/voxelnet_centerhead_sim.plan.${trt_version} model/voxelnet_centerhead_sim.plan
+    ln -s ${dir}/model/centerpoint.scn.plan.${trt_version} model/centerpoint.scn.plan
 else
-    echo Model model/voxelnet_centerhead_sim.plan.${trt_version} already build 🙋🙋🙋.
+    echo Model model/centerpoint.scn.plan.${trt_version} already build 🙋🙋🙋.
 fi

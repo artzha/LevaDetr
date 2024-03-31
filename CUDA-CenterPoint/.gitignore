@@ -10,3 +10,5 @@ tool/data/
 tool/*.pyc
 model/*.plan*
 **/__pycache__/**
+*.onnx
+*.log
