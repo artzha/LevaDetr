@@ -13,3 +13,6 @@
 [submodule "libraries/cuPCL"]
 	path = libraries/cuPCL
 	url = https://github.com/NVIDIA-AI-IOT/cuPCL.git
+[submodule "CUDA-CenterPoint/CenterPoint"]
+	path = CUDA-CenterPoint/CenterPoint
+	url = git@github.com:artzha/CenterPoint.git
